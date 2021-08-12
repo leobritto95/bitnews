@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "77323107760",
+    "project_id": "bitnews-a7d46",
+    "storage_bucket": "bitnews-a7d46.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:77323107760:android:210c9a452940216cebea75",
+        "android_client_info": {
+          "package_name": "com.appbitnews"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "77323107760-gfggd572cu4j6siu5u1g01od9t125pa1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.appbitnews",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "77323107760-4hup53pac23lbhljvlubkasks3j7qf1f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhLMKc-95EAuvJd5rlfsx-XnAdc8p8dRI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "77323107760-4hup53pac23lbhljvlubkasks3j7qf1f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

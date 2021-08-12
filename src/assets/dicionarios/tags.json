@@ -1,0 +1,16 @@
+{
+    "tags": [
+        {
+            "tag": "promo",
+            "name": "Promoções"
+        },
+        {
+            "tag": "privacidades",
+            "name": "Privacidade"
+        },
+        {
+            "tag": "games",
+            "name": "Games"
+        }
+    ]
+}
