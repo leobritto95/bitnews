@@ -20,9 +20,17 @@ import {
   IconNavbar,
 } from '../../assets/styles';
 import Compartilhador from '../../components/Compartilhador';
-import noticiasEstaticas from '../../assets/dicionarios/noticias.js';
 import {ScrollView} from 'react-native';
 import {CardContent} from 'react-native-cards';
+import {
+  getFeed,
+  usuarioGostou,
+  gostar,
+  desgostar,
+  getImagem,
+  likesAlive,
+  comentariosAlive,
+} from '../../api';
 
 export default class Detalhes extends Component {
   constructor(props) {
@@ -32,28 +40,88 @@ export default class Detalhes extends Component {
       feedId: this.props.navigation.state.params.feedId,
       feed: null,
       gostou: false,
+      podeGostar: false,
+      podeComentar: false,
     };
   }
+
+  verificarUsuarioGostou = () => {
+    const {feedId} = this.state;
+
+    usuarioGostou(feedId)
+      .then(resultado => {
+        this.setState({gostou: resultado.likes > 0});
+      })
+      .catch(error => {
+        console.error('erro verificando se usuario gostou: ' + error);
+      });
+  };
 
   carregarFeed = () => {
     const {feedId} = this.state;
 
-    const feeds = noticiasEstaticas.news;
-    const feedFiltrados = feeds.filter(feed => feed._id === feedId);
-
-    if (feedFiltrados.length) {
-      this.setState({
-        feed: feedFiltrados[0],
+    getFeed(feedId)
+      .then(feed => {
+        this.setState({feed}, () => {
+          this.verificarUsuarioGostou();
+        });
+      })
+      .catch(error => {
+        console.error('erro atualizando o feed' + error);
       });
-    }
   };
 
   componentDidMount = () => {
+    likesAlive()
+      .then(resultado => {
+        if (resultado.alive === 'yes') {
+          this.setState({
+            podeGostar: true,
+          });
+        } else {
+          this.setState(
+            {
+              podeGostar: false,
+            },
+            () => {
+              Toast.show('Não é possível registrar likes agora :(', Toast.LONG);
+            },
+          );
+        }
+      })
+      .catch(error => {
+        console.log('erro verificando disponibilidade de servico: ' + error);
+      });
+
+    comentariosAlive()
+      .then(resultado => {
+        if (resultado.alive === 'yes') {
+          this.setState({
+            podeComentar: true,
+          });
+        } else {
+          this.setState(
+            {
+              podeComentar: false,
+            },
+            () => {
+              Toast.show(
+                'Não é possível comentar sobre a publicação agora :(',
+                Toast.LONG,
+              );
+            },
+          );
+        }
+      })
+      .catch(error => {
+        console.log('erro verificando disponibilidade de servico: ' + error);
+      });
+
     this.carregarFeed();
   };
 
   mostrarSlides = () => {
-    const slides = this.state.feed.blobs.map(img => img.file);
+    const slides = this.state.feed.blobs.map(img => getImagem(img.image));
 
     return (
       <SliderBox
@@ -76,29 +144,44 @@ export default class Detalhes extends Component {
   };
 
   like = () => {
-    const {feed} = this.state;
-    const usuario = SyncStorage.get('user');
-
-    console.log('adicionando like do usuário: ' + usuario.name);
-    feed.likes++;
-
-    this.setState({feed, gostou: true}, () =>
-      Toast.show('Obrigado pela sua avaliação!', Toast.LONG),
-    );
+    const {feedId} = this.state;
+    gostar(feedId)
+      .then(resultado => {
+        if (resultado.situacao === 'ok') {
+          this.carregarFeed();
+          Toast.show('Obrigado pela sua avaliação!', Toast.LONG);
+        } else {
+          Toast.show(
+            'Ocorreu um erro nessa operação. Tente novamente mais tarde',
+            Toast.LONG,
+          );
+        }
+      })
+      .catch(error => {
+        console.error('erro registrando like:' + error);
+      });
   };
 
   dislike = () => {
-    const {feed} = this.state;
-    const usuario = SyncStorage.get('user');
-
-    console.log('removendo like do usuário: ' + usuario.name);
-    feed.likes--;
-
-    this.setState({feed, gostou: false});
+    const {feedId} = this.state;
+    desgostar(feedId)
+      .then(resultado => {
+        if (resultado.situacao === 'ok') {
+          this.carregarFeed();
+        } else {
+          Toast.show(
+            'Ocorreu um erro nessa operação. Tente novamente mais tarde',
+            Toast.LONG,
+          );
+        }
+      })
+      .catch(error => {
+        console.error('erro registrando dislike:' + error);
+      });
   };
 
   render = () => {
-    const {feed, gostou} = this.state;
+    const {feed, gostou, podeGostar, podeComentar} = this.state;
     const usuario = SyncStorage.get('user');
 
     if (feed) {
@@ -125,7 +208,7 @@ export default class Detalhes extends Component {
               <CentralizadoNaMesmaLinha>
                 <Compartilhador feed={feed} />
                 <Espacador />
-                {gostou && usuario && (
+                {podeGostar && gostou && usuario && (
                   <Icon
                     name="heart"
                     size={28}
@@ -135,7 +218,7 @@ export default class Detalhes extends Component {
                     }}
                   />
                 )}
-                {!gostou && usuario && (
+                {podeGostar && !gostou && usuario && (
                   <IconNavbar
                     name="hearto"
                     size={28}
@@ -178,7 +261,7 @@ export default class Detalhes extends Component {
                       <Likes> {feed.likes}</Likes>
                     </Icon>
                     <Espacador />
-                    {usuario && (
+                    {podeComentar && usuario && (
                       <Icon
                         name="message1"
                         size={28}

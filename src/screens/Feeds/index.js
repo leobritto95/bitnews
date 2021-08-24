@@ -1,20 +1,22 @@
 import React, {Component} from 'react';
 import {View, FlatList} from 'react-native';
-import {Header} from 'react-native-elements';
+import {Header, Button} from 'react-native-elements';
 
 import DrawerLayout from 'react-native-drawer-layout';
+import Icon from 'react-native-vector-icons/AntDesign';
 
 import FeedCard from '../../components/FeedCard';
-import noticiasEstaticas from '../../assets/dicionarios/noticias.js';
 import {
   EntradaNomeTitulo,
   CentralizadoNaMesmaLinha,
   Cabecalho,
+  ContenedorMensagem,
+  Mensagem,
   IconNavbar,
+  Espacador,
 } from '../../assets/styles';
 import Menu from '../../components/Menu';
-
-const FEEDS_POR_PAGINA = 2;
+import {getFeeds, getFeedsPorBusca, getFeedsPorTag, feedAlive} from '../../api';
 
 export default class Feeds extends Component {
   constructor(props) {
@@ -22,78 +24,84 @@ export default class Feeds extends Component {
     this.filtrarPorTag = this.filtrarPorTag.bind(this);
 
     this.state = {
-      proximaPagina: 0,
+      proximaPagina: 1,
       feeds: [],
 
       tagEscolhida: null,
       tagSearch: null,
+      podeVerFeeds: true,
       atualizando: false,
       carregando: false,
     };
   }
 
+  mostrarMaisFeeds = maisFeeds => {
+    const {proximaPagina, feeds} = this.state;
+    if (maisFeeds.length) {
+      console.log('adicionando ' + maisFeeds.length + ' feeds');
+      // incrementar a pagina e guardas os feeds
+      this.setState({
+        proximaPagina: proximaPagina + 1,
+        feeds: [...feeds, ...maisFeeds],
+
+        atualizando: false,
+        carregando: false,
+      });
+    } else {
+      this.setState({
+        atualizando: false,
+        carregando: false,
+      });
+    }
+  };
+
   // carregar o total de feeds por pagina na pagina atual
   carregarFeeds = () => {
-    const {proximaPagina, feeds, tagSearch, tagEscolhida} = this.state;
+    const {proximaPagina, tagSearch, tagEscolhida} = this.state;
 
     // avisa que esta carregando
     this.setState({
       carregando: true,
     });
 
-    //filtragem pela tag
-    if (tagEscolhida) {
-      const maisFeeds = noticiasEstaticas.news.filter(feed =>
-        feed.tags.includes(tagEscolhida.tag),
-      );
-
-      this.setState({
-        feeds: maisFeeds,
-
-        atualizando: false,
-        carregando: false,
+    feedAlive()
+      .then(resultado => {
+        if (resultado.alive === 'yes') {
+          this.setState({podeVerFeeds: true}, () => {
+            //filtragem pela tag
+            if (tagEscolhida) {
+              getFeedsPorTag(tagEscolhida.tag, proximaPagina)
+                .then(maisFeeds => {
+                  this.mostrarMaisFeeds(maisFeeds);
+                })
+                .catch(error => {
+                  console.error('erro acessando feeds: ' + error);
+                });
+            } else if (tagSearch) {
+              getFeedsPorBusca(tagSearch, proximaPagina)
+                .then(maisFeeds => {
+                  this.mostrarMaisFeeds(maisFeeds);
+                })
+                .catch(error => {
+                  console.error('erro acessando feeds: ' + error);
+                });
+            } else {
+              getFeeds(proximaPagina)
+                .then(maisFeeds => {
+                  this.mostrarMaisFeeds(maisFeeds);
+                })
+                .catch(error => {
+                  console.error('erro acessando feeds: ' + error);
+                });
+            }
+          });
+        } else {
+          this.setState({podeVerFeeds: false});
+        }
+      })
+      .catch(error => {
+        console.log('erro verificando a disponibilidade do servico: ' + error);
       });
-    } else if (tagSearch) {
-      // precisa filtar pela tag de busca
-      const maisFeeds = noticiasEstaticas.news.filter(feed => {
-        const search = tagSearch.toLowerCase();
-
-        return (
-          feed.tags.some(t => t.includes(search)) || feed.title.includes(search)
-        );
-      });
-
-      this.setState({
-        feeds: maisFeeds,
-
-        atualizando: false,
-        carregando: false,
-      });
-    } else {
-      // carregar o total de feeds por pagina da pagina atual
-      const idInicial = proximaPagina * FEEDS_POR_PAGINA + 1;
-      const idFinal = idInicial + FEEDS_POR_PAGINA - 1;
-      const maisFeeds = noticiasEstaticas.news.filter(
-        feed => feed._id >= idInicial && feed._id <= idFinal,
-      );
-
-      if (maisFeeds.length) {
-        console.log('adicionando ' + maisFeeds.length + ' feeds');
-        // incrementar a pagina e guardas os feeds
-        this.setState({
-          proximaPagina: proximaPagina + 1,
-          feeds: [...feeds, ...maisFeeds],
-
-          atualizando: false,
-          carregando: false,
-        });
-      } else {
-        this.setState({
-          atualizando: false,
-          carregando: false,
-        });
-      }
-    }
   };
 
   componentDidMount = () => {
@@ -115,7 +123,7 @@ export default class Feeds extends Component {
       {
         atualizando: true,
         feeds: [],
-        proximaPagina: 0,
+        proximaPagina: 1,
         tagSearch: null,
         tagEscolhida: null,
       },
@@ -148,7 +156,9 @@ export default class Feeds extends Component {
           size={20}
           name="search1"
           onPress={() => {
-            this.carregarFeeds();
+            this.setState({proximaPagina: 1, feeds: []}, () => {
+              this.carregarFeeds();
+            });
           }}
         />
       </CentralizadoNaMesmaLinha>
@@ -160,9 +170,16 @@ export default class Feeds extends Component {
   };
 
   filtrarPorTag = tag => {
-    this.setState({tagEscolhida: tag}, () => {
-      this.carregarFeeds();
-    });
+    this.setState(
+      {
+        tagEscolhida: tag,
+        proximaPagina: 1,
+        feeds: [],
+      },
+      () => {
+        this.carregarFeeds();
+      },
+    );
 
     this.menu.closeDrawer();
   };
@@ -207,14 +224,45 @@ export default class Feeds extends Component {
     );
   };
 
-  render = () => {
-    const {feeds} = this.state;
-    if (feeds.length) {
-      console.log('exibindo' + feeds.length + ' feeds');
+  mostrarBotaoAtualizar = () => {
+    return (
+      <ContenedorMensagem>
+        <Mensagem>Um dos nossos serviços não está funcionando :(</Mensagem>
+        <Mensagem>Tente novamente mais tarde!</Mensagem>
+        <Espacador />
+        <Button
+          icon={<Icon name="reload1" size={22} color="#fff" />}
+          title="Tentar agora"
+          type="solid"
+          onPress={() => {
+            this.carregarFeeds();
+          }}
+        />
+      </ContenedorMensagem>
+    );
+  };
 
-      return this.mostrarFeeds(feeds);
+  mostrarMensagemCarregando = () => {
+    return (
+      <ContenedorMensagem>
+        <Mensagem>Carregando feeds. Aguarde...</Mensagem>
+      </ContenedorMensagem>
+    );
+  };
+
+  render = () => {
+    const {feeds, podeVerFeeds} = this.state;
+
+    if (podeVerFeeds) {
+      if (feeds) {
+        console.log('exibindo' + feeds.length + ' feeds');
+
+        return this.mostrarFeeds(feeds);
+      } else {
+        return this.mostrarMensagemCarregando();
+      }
     } else {
-      return null;
+      return this.mostrarBotaoAtualizar();
     }
   };
 }

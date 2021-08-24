@@ -10,6 +10,7 @@ import {
   DireitaDaMesmaLinha,
   Likes,
 } from '../../assets/styles';
+import {getImagem} from '../../api';
 
 export default class FeedCard extends Component {
   constructor(props) {
@@ -43,7 +44,7 @@ export default class FeedCard extends Component {
               </Text>
             </DireitaDaMesmaLinha>
           </CardContent>
-          <CardImage source={feed.blobs[0].file} />
+          <CardImage source={getImagem(feed.blobs[0].image)} />
           <CardContent>
             <ConteudoNoticia numberOfLines={3}>{feed.content}</ConteudoNoticia>
           </CardContent>

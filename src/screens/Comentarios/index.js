@@ -22,12 +22,18 @@ import {
   DivisorComentario,
   ContenedorNovoComentario,
   Espacador,
+  ContenedorMensagem,
+  Mensagem,
   IconNavbar,
 } from '../../assets/styles';
-import comentariosEstaticos from '../../assets/dicionarios/comentarios.json';
 import {View} from 'react-native';
+import {
+  getComentarios,
+  adicionarComentario,
+  removerComentario,
+  comentariosAlive,
+} from '../../api';
 
-const COMENTARIOS_POR_PAGINA = 5;
 const TAMANHO_MAXIMO_COMENTARIO = 100;
 
 export default class Comentarios extends React.Component {
@@ -39,11 +45,12 @@ export default class Comentarios extends React.Component {
       news,
 
       comentarios: [],
-      proximaPagina: 0,
+      proximaPagina: 1,
       textoNovoComentario: '',
 
       carregando: false,
       atualizando: false,
+      podeComentar: true,
       telaAdicaoVisivel: false,
     };
   }
@@ -55,32 +62,47 @@ export default class Comentarios extends React.Component {
       carregando: true,
     });
 
-    // carregar o total de comentarios por pagina da pagina atual
-    // tambem tem que filtrar pelo feed selecionado na tela anterior
-    const idInicial = proximaPagina * COMENTARIOS_POR_PAGINA + 1;
-    const idFinal = idInicial + COMENTARIOS_POR_PAGINA - 1;
+    comentariosAlive()
+      .then(resultado => {
+        if (resultado.alive === 'yes') {
+          this.setState(
+            {
+              podeComentar: true,
+            },
+            () => {
+              getComentarios(feedId, proximaPagina)
+                .then(maisComentarios => {
+                  if (maisComentarios.length) {
+                    this.setState({
+                      proximaPagina: proximaPagina + 1,
+                      comentarios: [...comentarios, ...maisComentarios],
 
-    const maisComentarios = comentariosEstaticos.comentarios.filter(
-      comentario =>
-        comentario._id >= idInicial &&
-        comentario._id <= idFinal &&
-        comentario.feed === feedId,
-    );
-
-    if (maisComentarios.length) {
-      this.setState({
-        proximaPagina: proximaPagina + 1,
-        comentarios: [...comentarios, ...maisComentarios],
-
-        atualizando: false,
-        carregando: false,
+                      atualizando: false,
+                      carregando: false,
+                    });
+                  } else {
+                    this.setState({
+                      atualizando: false,
+                      carregando: false,
+                    });
+                  }
+                })
+                .catch(error => {
+                  console.error('erro exibindo comentarios: ' + error);
+                });
+            },
+          );
+        } else {
+          this.setState({
+            podeComentar: false,
+          });
+        }
+      })
+      .catch(error => {
+        console.error(
+          'erro verificando a disponibilidade do servico: ' + error,
+        );
       });
-    } else {
-      this.setState({
-        atualizando: false,
-        carregando: false,
-      });
-    }
   };
 
   componentDidMount = () => {
@@ -97,20 +119,23 @@ export default class Comentarios extends React.Component {
   };
 
   removerComentario = comentarioParaRemover => {
-    const {comentarios} = this.state;
-
-    const comentariosFiltrados = comentarios.filter(comentario => {
-      comentario._id !== comentarioParaRemover._id;
-    });
-
-    this.setState(
-      {
-        comentarios: comentariosFiltrados,
-      },
-      () => {
-        this.atualizar();
-      },
-    );
+    removerComentario(comentarioParaRemover._id)
+      .then(resultado => {
+        if (resultado.situacao === 'ok') {
+          this.setState(
+            {
+              proximaPagina: 1,
+              comentarios: [],
+            },
+            () => {
+              this.carregarComentarios();
+            },
+          );
+        }
+      })
+      .catch(error => {
+        console.error('erro removendo comentario: ' + error);
+      });
   };
 
   confirmarRemocao = comentario => {
@@ -178,7 +203,7 @@ export default class Comentarios extends React.Component {
 
   atualizar = () => {
     this.setState(
-      {atualizando: true, carregando: false, proximaPagina: 0, comentarios: []},
+      {atualizando: true, carregando: false, proximaPagina: 1, comentarios: []},
       () => {
         this.carregarComentarios();
       },
@@ -186,26 +211,45 @@ export default class Comentarios extends React.Component {
   };
 
   adicionarComentario = () => {
-    const {feedId, comentarios, textoNovoComentario} = this.state;
-    const usuario = SyncStorage.get('user');
+    const {feedId, textoNovoComentario} = this.state;
 
-    const comentario = [
-      {
-        _id: comentarios.length + 100,
-        feed: feedId,
-        user: {
-          userId: 2,
-          email: usuario.email,
-          name: usuario.name,
-        },
-        datetime: '2020-03-26T12:00-0500',
-        content: textoNovoComentario,
-      },
-    ];
-
-    this.setState({
-      comentarios: [...comentario, ...comentarios],
-    });
+    comentariosAlive()
+      .then(resultado => {
+        if (resultado.alive === 'yes') {
+          this.setState(
+            {
+              podeComentar: true,
+            },
+            () => {
+              adicionarComentario(feedId, textoNovoComentario)
+                .then(resultado => {
+                  if (resultado.situacao === 'ok') {
+                    this.setState(
+                      {
+                        proximaPagina: 1,
+                        comentarios: [],
+                      },
+                      () => {
+                        this.carregarComentarios();
+                      },
+                    );
+                  }
+                })
+                .catch(error => {
+                  console.log(error);
+                  console.log('erro adicionando comentario ' + error);
+                });
+            },
+          );
+        } else {
+          this.setState({
+            podeComentar: false,
+          });
+        }
+      })
+      .catch(error => {
+        console.error('erro verificando disponibilidade do servico: ' + error);
+      });
 
     this.mudarVisibilidadeTelaAdicao();
   };
@@ -327,18 +371,48 @@ export default class Comentarios extends React.Component {
     );
   };
 
-  render = () => {
-    const {comentarios, telaAdicaoVisivel} = this.state;
+  mostrarBotaoAtualizar = () => {
+    return (
+      <ContenedorMensagem>
+        <Mensagem>Um dos nossos serviços não está funcionando :(</Mensagem>
+        <Mensagem>Tente novamente mais tarde!</Mensagem>
+        <Espacador />
+        <Button
+          icon={<Icon name="reload1" size={22} color="#fff" />}
+          title="Tentar agora"
+          type="solid"
+          onPress={() => {
+            this.carregarComentarios();
+          }}
+        />
+      </ContenedorMensagem>
+    );
+  };
 
-    if (comentarios) {
-      return (
-        <>
-          {this.mostrarComentarios()}
-          {telaAdicaoVisivel && this.mostrarTelaAdicaoComentario()}
-        </>
-      );
+  mostrarMensagemCarregando = () => {
+    return (
+      <ContenedorMensagem>
+        <Mensagem>Carregando comentarios. Aguarde...</Mensagem>
+      </ContenedorMensagem>
+    );
+  };
+
+  render = () => {
+    const {comentarios, telaAdicaoVisivel, podeComentar} = this.state;
+
+    if (podeComentar) {
+      if (comentarios) {
+        return (
+          <>
+            {this.mostrarComentarios()}
+            {telaAdicaoVisivel && this.mostrarTelaAdicaoComentario()}
+          </>
+        );
+      } else {
+        return this.mostrarMensagemCarregando();
+      }
     } else {
-      return null;
+      return this.mostrarBotaoAtualizar();
     }
   };
 }

@@ -11,8 +11,8 @@ import {
   CentralizadoNaMesmaLinha,
 } from '../../assets/styles';
 import {LoginOptionsMenu} from '../../components/Login';
-import tagsEstaticas from '../../assets/dicionarios/tags.json';
 import Icon from 'react-native-vector-icons/AntDesign';
+import {getMenuTags, menuTagsAlive} from '../../api';
 
 export default class Menu extends Component {
   constructor(props) {
@@ -21,8 +21,35 @@ export default class Menu extends Component {
     this.state = {
       atualizar: true,
       filtrar: props.filtragem,
+
+      tags: [],
     };
   }
+
+  componentDidMount = () => {
+    menuTagsAlive()
+      .then(resultado => {
+        if (resultado.alive === 'yes') {
+          getMenuTags()
+            .then(tags => {
+              this.setState({
+                tags,
+              });
+            })
+            .catch(error => {
+              console.log('ocorreu um erro criando menu de empresas' + error);
+            });
+        } else {
+          Toast.show(
+            'Não é possível carregar as o menu de busca por tags agora :(',
+            Toast.LONG,
+          );
+        }
+      })
+      .catch(error => {
+        console.error('erro verificando disponibilidade de servico: ' + error);
+      });
+  };
 
   mostrarTags = tag => {
     const {filtrar} = this.state;
@@ -69,7 +96,7 @@ export default class Menu extends Component {
   };
 
   render = () => {
-    const {tags} = tagsEstaticas;
+    const {tags} = this.state;
 
     return (
       <>

@@ -138,6 +138,17 @@ export const DataComentario = styled.Text`
   color: #283044;
 `;
 
+export const ContenedorMensagem = styled.View`
+  height: 100%;
+  justify-content: center;
+  align-items: center;
+  background-color: #eff2f1;
+`;
+
+export const Mensagem = styled.Text`
+  color: #283044;
+`;
+
 export const IconNavbar = styled(Icon)`
   color: white;
 `;
